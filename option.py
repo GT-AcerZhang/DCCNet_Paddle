@@ -1,10 +1,6 @@
 import argparse
 import os
 
-fcn_resume = None
-pspnet_resume = None
-deeplabv3_resum = None
-
 
 class Options():
     def __init__(self):
@@ -12,11 +8,10 @@ class Options():
         # model and dataset 
         parser.add_argument('--model', type=str, default='dccnet',
                             help='model name (default: dccnet)')
-        parser.add_argument('--vgg-path', type=str, default=
-                            None, help='the path of vgg16')
-        parser.add_argument('--reader', type=str, default='voc',
+        parser.add_argument('--vgg-path', type=str, default="/home/aistudio/work/data/vgg16", help='the path of vgg16')
+        parser.add_argument('--reader', type=str, default='voc_aug',
                             help='reader name (default: voc)')
-        parser.add_argument('--data-path', type=str, default=r"E:\Data\datasets",
+        parser.add_argument('--data-path', type=str, default=r"/home/aistudio/work/data",
                             help='reader path')
         parser.add_argument('--checkpoints-path', type=str, default=None,
                             help='checkpoints path')
@@ -29,7 +24,7 @@ class Options():
         parser.add_argument('--train-split', type=str, default='train',
                             help='dataset train split (default: train)')
         # training hyper params
-        parser.add_argument('--aux', action='store_true', default=True,
+        parser.add_argument('--aux', action='store_true', default=False,
                             help='Auxilary Loss')
         parser.add_argument('--aux-weight', type=float, default=None,
                             help='Auxilary loss weight (default: 0.2)')
@@ -127,12 +122,7 @@ class Options():
             }
             args.lr = lrs[args.reader.lower()] / 16 * args.batch_size
         if args.checkpoints_path is None:
-            if args.dilations is not None and args.model == "grnet":
-                args.checkpoints_path = f"./work/{args.model}_{args.backbone}-{args.backbone_style}_{args.reader}_{args.pu}-{args.dilations}_graphs-{args.graphs}_checkpoint.pkl"
-            elif args.dilations is not None and args.model != "grnet":
-                args.checkpoints_path = f"./work/{args.model}_{args.backbone}-{args.backbone_style}_{args.reader}_{args.pu}-{args.dilations}_checkpoint.pkl"
-            else:
-                args.checkpoints_path = f"./work/{args.model}_{args.backbone}-{args.backbone_style}_{args.reader}_checkpoint.pkl"
+            args.checkpoints_path = f"./work/{args.model}_{args.reader}_checkpoint.pkl"
         if args.resume and args.ft:
             args.resume_path = args.checkpoints_path.replace("voc", "voc_aug")
         else:

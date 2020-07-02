@@ -9,14 +9,14 @@ import numpy as np
 
 import paddle.fluid as fluid
 
-from .option import Options
-from .models import DCCNet
-from .reader import get_segmentation_reader
-from .utils.loss import SegmentationLosses
-from .utils.metrics import SegmentationMetric
-from .utils.checkpoints import save_checkpoints, load_checkpoints
-from .utils.logger import Logger
-from .utils.viz import RecordViz
+from option import Options
+from models import DCCNet
+from reader import get_segmentation_reader
+from utils.loss import SegmentationLosses
+from utils.metrics import SegmentationMetric
+from utils.checkpoints import save_checkpoints, load_checkpoints
+from utils.logger import Logger
+from utils.viz import RecordViz
 
 
 with fluid.dygraph.guard():
@@ -55,23 +55,13 @@ with fluid.dygraph.guard():
 
             # optimizer using different LR
             optimizer_pretrained = fluid.optimizer.MomentumOptimizer(learning_rate=poly_lr,
-                                                                     parameter_list=model.pretrained.parameters(),
+                                                                     parameter_list=model.backbone.parameters(),
                                                                      momentum=args.momentum,
                                                                      regularization=l2_regularization)
             optimizer_head = fluid.optimizer.MomentumOptimizer(learning_rate=poly_lr_10x,
                                                                parameter_list=model.head.parameters(),
                                                                momentum=args.momentum,
                                                                regularization=l2_regularization)
-            if model.pu:
-                poly_lr_10x_pu = fluid.dygraph.learning_rate_scheduler.PolynomialDecay(
-                    learning_rate=args.lr*10,
-                    decay_steps=decay_steps,
-                    end_learning_rate=0,
-                    power=0.9)
-                self.optimizer_pu = fluid.optimizer.MomentumOptimizer(learning_rate=poly_lr_10x_pu,
-                                                                      parameter_list=model.up.parameters(),
-                                                                      momentum=args.momentum,
-                                                                      regularization=l2_regularization)
             if hasattr(model, "auxlayer"):
                 poly_lr_10x_auxlayer = fluid.dygraph.learning_rate_scheduler.PolynomialDecay(
                     learning_rate=args.lr*10,
@@ -107,9 +97,6 @@ with fluid.dygraph.guard():
                     checkpoint["optimizer"]["head"]["global_step"] = global_step
                     self.optimizer_pretrained.set_dict(checkpoint["optimizer"]["pretrained"])
                     self.optimizer_head.set_dict(checkpoint["optimizer"]["head"])
-                    if self.model.pu:
-                        checkpoint["optimizer"][args.pu]["global_step"] = global_step
-                        self.optimizer_pu.set_dict(checkpoint["optimizer"][args.pu])
                     if hasattr(self.model, "auxlayer"):
                         checkpoint["optimizer"]["auxlayer"]["global_step"] = global_step
                         self.optimizer_auxlayer.set_dict(checkpoint["optimizer"]["auxlayer"])
@@ -154,8 +141,6 @@ with fluid.dygraph.guard():
 
                 self.optimizer_pretrained.minimize(avg_loss)
                 self.optimizer_head.minimize(avg_loss)
-                if self.model.pu:
-                    self.optimizer_pu.minimize(avg_loss)
                 if hasattr(self.model, "auxlayer"):
                     self.optimizer_auxlayer.minimize(avg_loss)
                 self.model.clear_gradients()
@@ -204,8 +189,6 @@ with fluid.dygraph.guard():
                     "optimizer": {"pretrained": self.optimizer_pretrained.state_dict(),
                                   "head": self.optimizer_head.state_dict()},
                     "best_pred": self.best_pred,}
-                if self.model.pu:
-                    state_dict["optimizer"][self.args.pu] = self.optimizer_pu.state_dict()
                 if hasattr(self.model, "auxlayer"):
                     state_dict["optimizer"]["auxlayer"] = self.optimizer_auxlayer.state_dict()
                 save_checkpoints(state_dict, self.args.checkpoints_path, is_best)
@@ -216,8 +199,7 @@ with fluid.dygraph.guard():
     print('Starting Epoch:', trainer.args.start_epoch)
     print('Total Epoches:', trainer.args.epochs)
     print("Model: ", trainer.args.model)
-    print("Backbone", trainer.args.backbone)
-    print("PU", trainer.args.pu)
+    print("Backbone", trainer.args.vgg_path)
     print("Reader: ", trainer.args.reader)
     print("Checkpoint", trainer.args.checkpoints_path)
     for epoch in range(trainer.args.start_epoch, trainer.args.epochs):
